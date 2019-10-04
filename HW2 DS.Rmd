@@ -1,0 +1,173 @@
+---
+title: "p8105_hw2_th2723"
+output: html_document
+---
+Initial setup:
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+### problem 1
+Basic tidy work:
+```{r}
+Mr.TW = 
+  readxl::read_excel("Trash-Wheel-Collection-Totals-8-6-19.xlsx", sheet = 1, range = "A2:N408") %>%
+  janitor::clean_names() %>%
+  drop_na(dumpster)%>%
+  mutate(
+    sports_balls = as.integer(sports_balls)
+  )
+
+```
+Read and clean data for 2017 and 2018:
+2018:
+```{r}
+Mr.TW_years18 = 
+  readxl::read_excel("Trash-Wheel-Collection-Totals-8-6-19.xlsx", sheet = 5, range = "A2:B14") %>%
+  janitor::clean_names()%>%
+  drop_na(total)%>%
+   mutate(year = "2018"
+  )
+```
+2017:
+```{r}
+Mr.TW_years17 = 
+  readxl::read_excel("Trash-Wheel-Collection-Totals-8-6-19.xlsx", sheet = 6, range = "A2:B14") %>%
+  janitor::clean_names()%>%
+  drop_na(total)%>%
+   mutate(year = "2017"
+  )
+```
+Now combine 2017 and 2018, and convert month to a character variable:
+```{r}
+Mr.TW_years = rbind(Mr.TW_years17,Mr.TW_years18)
+Mr.TW_years %>%
+mutate(
+       month = month.name[as.numeric(month)]
+ )
+select(Mr.TW_years, year, month, total)
+```
+~Total precipitation in 2018 is `r sum(pull(Mr.TW_years18,total))`
+~The number of observation in 2017 is 12 and the number of observation is als 12.
+~The median number of ports balls in a dumpster in 2017 is `r median(pull(Mr.TW, sports_balls))`
+~some key variables includes year, month and total
+
+###problem 2
+```{r}
+pols = 
+  read_csv("fivethirtyeight_datasets/pols-month.csv")%>%
+  janitor::clean_names()%>%
+  separate(col= mon, sep="-", into = c("year", "month", "day"))%>%
+  mutate(
+         president = ifelse(prez_gop !=0, "gop","dem"),
+         month = month.name[as.numeric(month)],
+         year = as.integer(year),
+         day = as.integer(day)
+  )
+pols_tidy_data = select(pols, year, month, everything(), -prez_dem, -prez_gop, -day)
+  
+```
+snp data:
+```{r}
+snp = 
+  read_csv("fivethirtyeight_datasets/snp.csv") %>%
+  janitor::clean_names()%>%
+  separate(col= date, sep="/", into = c("day", "month", "year")) %>%
+  mutate(
+     month = month.name[as.numeric(month)],
+     year = as.integer(year),
+     day = as.integer(day)
+  )
+snp_tidy_data = select(snp, year, month, close, -day)
+
+```
+unemployment data:
+```{r}
+Um = 
+  read_csv("fivethirtyeight_datasets/unemployment.csv")%>%
+  janitor::clean_names() %>%
+  rename(January = "jan", Feburary = "feb", March = "mar", April = "apr", May = "may", June = "jun", July="jul", August = "aug", September = "sep", October = "oct", November = "nov", December ="dec" )
+Um_tidy_data = 
+    pivot_longer(
+        Um, 
+        January:December,
+        names_to = "month", 
+        values_to = "Unemployment Rate") %>%
+  mutate(
+    year = as.integer(year)
+  )
+  
+```
+
+Merge datasets:
+merge snp into pols:
+```{r}
+p_s = left_join(pols_tidy_data,snp_tidy_data,by = c("year", "month"))
+```
+merge unemployment into p_s:
+```{r}
+all = left_join(p_s, Um_tidy_data,by = c("year", "month"))
+```
+In this question, I cleared data for pols, snp and unemployment rate.
+For pols, its clean data has 822 observation and 9 variables. The key variable "year" ranges from 1947 to 2015. Some key variables include president, a new variable we create for this homework. The untidy data use 1 or 0 to predict republican-dominance and democrat-dominance. However, I changed it to "dem" to indicate its dominance.
+For snp, it has 787 observations and 3 variables. The key varaibles "year" ranges from 1950 to 2015. I found that "close" variable has an increasing trending over the years which indicates a general economic growth.
+For unemployment rate, it has 816 observations and 3 variables. They key variable "year" ranges from 1948 to 2015. I discovered that the unemployment rate has a trend of decreasing since the Great recession, which means that the economy in United States is recovering.
+### problem 3
+Basic data cleaning:
+```{r}
+Names = 
+  read_csv("Popular_Baby_Names.csv")%>%
+  janitor::clean_names()%>%
+  distinct()%>%
+  mutate(
+  ethnicity = recode(ethnicity, 'ASIAN AND PACI' = "ASIAN AND PACIFIC ISLANDER", 'WHITE NON HISP'= "WHITE NON HISPANIC", 'BLACK NON HISP' = "BLACK NON HISPANIC"  )  #Use unique(pull(Names,ethnicity)) to figure out how many expressions of the same ethnicity
+  ) %>%
+  mutate(
+    childs_first_name = str_to_title(childs_first_name)
+  )
+  
+```
+rank in popularity of the name "Olivia"
+```{r}
+Olivia = 
+  filter(Names, childs_first_name == "Olivia") %>%
+  select(year_of_birth, ethnicity,rank) %>%
+  pivot_wider(
+    names_from = year_of_birth,
+    values_from = rank
+  )
+Olivia
+```
+Most popular name among male children:
+```{r}
+
+Male = 
+  filter(Names, gender == "MALE", rank == "1") %>%
+  select(year_of_birth,ethnicity,childs_first_name)%>%
+  pivot_wider(
+    names_from = year_of_birth,
+    values_from = childs_first_name
+  )
+```
+
+scatter plot:
+```{r}
+Names %>% 
+  filter(gender == "MALE") %>%
+  filter(ethnicity == "WHITE NON HISPANIC")%>%
+  filter(year_of_birth == "2016")%>% 
+  ggplot(aes(x = rank, y = count)) + 
+  geom_point(aes(), alpha = .5) +
+labs(
+    title = "Names for White Non-hispanic Children in 2016",
+    x = "rank of name",
+    y = "count of name"
+)
+```
+
+
+
+
+
+
