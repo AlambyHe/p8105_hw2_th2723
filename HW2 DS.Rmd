@@ -1,6 +1,7 @@
 ---
 title: "p8105_hw2_th2723"
-output: html_document
+output: github_document
+author : "Tianhui He"
 ---
 Initial setup:
 ```{r setup, include=FALSE}
